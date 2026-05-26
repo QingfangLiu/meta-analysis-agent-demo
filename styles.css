@@ -743,6 +743,19 @@ main {
   min-width: 0;
 }
 
+.synthesis-step-bullet-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.synthesis-step-bullet-list li + li {
+  margin-top: 3px;
+}
+
+.synthesis-step-list-detail {
+  color: var(--muted);
+}
+
 .matrix-toolbar {
   display: flex;
   justify-content: space-between;

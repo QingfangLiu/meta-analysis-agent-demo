@@ -6107,6 +6107,75 @@
     return primaryCount + branchCount;
   }
 
+  function synthesisStudyCountFromPlot(plotData) {
+    const rows = synthesisStudyRowsFromPlot(plotData);
+    const ids = new Set();
+    rows.forEach((row, index) => {
+      const id = String(row?.pmid || row?.study_id || row?.label || `row-${index}`).trim();
+      if (id) {
+        ids.add(id);
+      }
+    });
+    return ids.size;
+  }
+
+  function studyCountText(count) {
+    const n = Number(count) || 0;
+    return `${number(n)} ${n === 1 ? "study" : "studies"}`;
+  }
+
+  function synthesisAnalysisStudyCountDetail(analysis) {
+    const primaryCount = synthesisStudyCountFromPlot(analysis?.plotData);
+    if (primaryCount) {
+      return studyCountText(primaryCount);
+    }
+
+    const designBranches = synthesisDesignBranchEntries(analysis)
+      .filter((branch) => hasForestPlotData(branch.plotData));
+    if (designBranches.length) {
+      return designBranches
+        .map((branch) => {
+          const label = branch.label || humanizeMetric(branch.subsetName || "study design branch");
+          return `${label}: ${studyCountText(synthesisStudyCountFromPlot(branch.plotData))}`;
+        })
+        .join("; ");
+    }
+
+    const subgroupRows = (Array.isArray(analysis?.subgroupAnalyses) ? analysis.subgroupAnalyses : [])
+      .filter((subgroup) => hasForestPlotData(subgroup.plotData))
+      .flatMap((subgroup) => synthesisStudyRowsFromPlot(subgroup.plotData));
+    if (subgroupRows.length) {
+      const ids = new Set();
+      subgroupRows.forEach((row, index) => {
+        const id = String(row?.pmid || row?.study_id || row?.label || `row-${index}`).trim();
+        if (id) {
+          ids.add(id);
+        }
+      });
+      return `${studyCountText(ids.size)} in plotted subgroups`;
+    }
+
+    return "0 synthesized studies";
+  }
+
+  function synthesisOutcomeSummaryDetail(analyses) {
+    const plottedAnalyses = (Array.isArray(analyses) ? analyses : [])
+      .filter((analysis) => synthesisAnalysisForestPlotCount(analysis));
+    if (!plottedAnalyses.length) {
+      return "0 synthesized studies";
+    }
+    if (plottedAnalyses.length === 1) {
+      return synthesisAnalysisStudyCountDetail(plottedAnalyses[0]);
+    }
+    return plottedAnalyses
+      .map((analysis) => {
+        const measure = String(analysis?.measure || analysis?.results?.effect_measure || analysis?.label || "").trim();
+        const label = effectMeasureLabel(measure || "analysis").toLowerCase();
+        return `${label}: ${synthesisAnalysisStudyCountDetail(analysis)}`;
+      })
+      .join("; ");
+  }
+
   function synthesisDesignBranchForestPlotCount(analysis) {
     return synthesisDesignBranchEntries(analysis)
       .filter((branch) => hasForestPlotData(branch.plotData))
@@ -6144,10 +6213,16 @@
         ),
         0
       ),
-      plottedOutcomeNames: plottedOutcomeEntries.map((item) => item.entry.outcome_name || item.entry.key || "Outcome"),
-      unplottedOutcomeNames: outcomes
+      plottedOutcomeItems: plottedOutcomeEntries.map((item) => ({
+        name: item.entry.outcome_name || item.entry.key || "Outcome",
+        detail: synthesisOutcomeSummaryDetail(item.analyses),
+      })),
+      unplottedOutcomeItems: outcomes
         .filter((entry) => !plottedKeys.has(entry.key))
-        .map((entry) => entry.outcome_name || entry.key || "Outcome"),
+        .map((entry) => ({
+          name: entry.outcome_name || entry.key || "Outcome",
+          detail: "0 synthesized studies",
+        })),
     };
   }
 
@@ -6156,14 +6231,33 @@
     const forestPlots = Number(summary?.forestPlots) || 0;
     const designBranchForestPlots = Number(summary?.designBranchForestPlots) || 0;
     const plottedOutcomes = Number(summary?.plottedOutcomes) || 0;
-    const plottedNames = Array.isArray(summary?.plottedOutcomeNames) ? summary.plottedOutcomeNames : [];
-    const unplottedNames = Array.isArray(summary?.unplottedOutcomeNames) ? summary.unplottedOutcomeNames : [];
+    const plottedItems = Array.isArray(summary?.plottedOutcomeItems) ? summary.plottedOutcomeItems : [];
+    const unplottedItems = Array.isArray(summary?.unplottedOutcomeItems) ? summary.unplottedOutcomeItems : [];
     if (!totalOutcomes) {
       return `<p class="note synthesis-step-summary">No configured outcomes were available for synthesis.</p>`;
     }
     const outcomeSuffix = plottedOutcomes === forestPlots
       ? ""
       : ` across ${number(plottedOutcomes)} ${plottedOutcomes === 1 ? "outcome" : "outcomes"}`;
+    const renderOutcomeList = (items) => {
+      if (!items.length) {
+        return `<span class="synthesis-step-list-text">None</span>`;
+      }
+      return `
+        <ul class="synthesis-step-list-text synthesis-step-bullet-list">
+          ${items.map((item) => {
+            const name = String(item?.name || "").trim() || "Outcome";
+            const detail = String(item?.detail || "").trim();
+            return `
+              <li>
+                <span class="synthesis-step-list-name">${sentence(name)}</span>
+                ${detail ? `<span class="synthesis-step-list-detail">(${escapeHtml(detail)})</span>` : ""}
+              </li>
+            `;
+          }).join("")}
+        </ul>
+      `;
+    };
     return `
       <div class="synthesis-step-summary">
         <p class="note">
@@ -6175,11 +6269,11 @@
         <div class="synthesis-step-outcome-lists">
           <div>
             <span class="synthesis-step-list-label">Forest plots</span>
-            <span class="synthesis-step-list-text">${plottedNames.length ? plottedNames.map(sentence).join("; ") : "None"}</span>
+            ${renderOutcomeList(plottedItems)}
           </div>
           <div>
             <span class="synthesis-step-list-label">No forest plot</span>
-            <span class="synthesis-step-list-text">${unplottedNames.length ? unplottedNames.map(sentence).join("; ") : "None"}</span>
+            ${renderOutcomeList(unplottedItems)}
           </div>
         </div>
       </div>
