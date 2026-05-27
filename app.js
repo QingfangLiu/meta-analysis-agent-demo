@@ -6808,7 +6808,7 @@
     const headerCenterY = 76 + titleOffset;
     const plotAreaTop = 116 + titleOffset;
     const top = 148 + titleOffset;
-    const bottom = hasFavours ? 92 : 46;
+    const bottom = hasFavours ? 130 : 46;
     const rowHeight = 58;
     const plotLeft = left;
     const plotRight = width - right;
@@ -7008,7 +7008,7 @@
     const favoursLeft = String(plotData.favours_left || "").trim();
     const favoursRight = String(plotData.favours_right || "").trim();
     const hasFavours = Boolean(favoursLeft || favoursRight);
-    const height = hasFavours ? 136 : 112;
+    const height = hasFavours ? 184 : 112;
     const plotLeft = showHazardLogColumns ? 895 : showEventColumns ? 925 : 725;
     const plotRight = width - 38;
     const plotWidth = plotRight - plotLeft;
@@ -7027,7 +7027,7 @@
     const tickTopY = axisBottom;
     const tickBottomY = tickTopY + 11;
     const tickY = tickBottomY + 17;
-    const favoursY = tickY + 20;
+    const favoursY = tickY + 22;
     const nullX = finiteNumber(displayAxis.null_x);
     const xScale = isLogScale
       ? (value) => plotLeft + ((Math.log(value) - Math.log(xMin)) / (Math.log(xMax) - Math.log(xMin))) * plotWidth
